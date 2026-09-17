@@ -1,0 +1,22 @@
+### Root Welcome
+GET http://127.0.0.1:8000/
+
+### Get All Candidates
+GET http://127.0.0.1:8000/candidates
+
+### Create New Candidate
+POST http://127.0.0.1:8000/candidates
+Content-Type: application/json
+
+{
+  "id": 2,
+  "name": "Sarah Connor",
+  "email": "sarah.connor@example.com",
+  "role": "Full Stack Developer",
+  "experience_years": 4.0,
+  "skills": ["Python", "FastAPI", "React", "TypeScript"],
+  "status": "interview"
+}
+
+### Get Candidate by ID
+GET http://127.0.0.1:8000/candidates/2
