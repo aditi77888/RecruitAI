@@ -1,0 +1,4 @@
+# Additional dependencies for the api/ layer, on top of the project's
+# root requirements.txt (which already provides fastapi, uvicorn, and
+# python-multipart for file uploads).
+PyJWT>=2.8.0
