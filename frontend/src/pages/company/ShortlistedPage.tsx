@@ -1,13 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { CallStatusBadge, StatusBadge } from '../../components/kit/Badge'
+import { Badge, CallStatusBadge, StatusBadge } from '../../components/kit/Badge'
 import { Button } from '../../components/kit/Button'
 import { EmptyState } from '../../components/kit/EmptyState'
-import { Input } from '../../components/kit/Input'
+import { PageHeader } from '../../components/kit/PageHeader'
 import { PageSpinner } from '../../components/kit/Spinner'
 import { candidateApi, extractErrorMessage, jdApi } from '../../core/api'
 import { useToast } from '../../core/toast'
 import type { Candidate, JD } from '../../core/types'
+
+function initials(name: string | null): string {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?'
+}
+
+function scoreTone(score: number): string {
+  if (score >= 70) return 'text-emerald-600'
+  if (score >= 40) return 'text-amber-600'
+  return 'text-rose-600'
+}
 
 export default function ShortlistedPage() {
   const toast = useToast()
@@ -56,30 +68,36 @@ export default function ShortlistedPage() {
 
   return (
     <div className="animate-fade-in-up">
-      <h1 className="text-2xl font-bold text-slate-900">Shortlisted Candidates</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Master candidate list. Status updates automatically as candidates move through the pipeline.
-      </p>
+      <PageHeader
+        title="Shortlisted Candidates"
+        description="Master candidate list. Status updates automatically as candidates move through the pipeline."
+        actions={candidates && <Badge tone="indigo">{candidates.length} candidate(s)</Badge>}
+      />
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <div className="flex-1">
-          <Input
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
             placeholder="Search by name or candidate ID"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
           />
         </div>
-        <select
-          value={jdFilter}
-          onChange={(e) => setJdFilter(e.target.value)}
-          className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-700 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 sm:w-56"
-        >
-          {jdOptions.map((title) => (
-            <option key={title} value={title}>
-              {title}
-            </option>
-          ))}
-        </select>
+        <div className="relative sm:w-56">
+          <select
+            value={jdFilter}
+            onChange={(e) => setJdFilter(e.target.value)}
+            className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-700 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10"
+          >
+            {jdOptions.map((title) => (
+              <option key={title} value={title}>
+                {title}
+              </option>
+            ))}
+          </select>
+          <ChevronIcon className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        </div>
       </div>
 
       {selectedJd && (
@@ -112,10 +130,17 @@ export default function ShortlistedPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {candidates.map((c) => (
-                    <tr key={c.candidate_id} className="align-top hover:bg-slate-50/70">
+                    <tr key={c.candidate_id} className="align-top transition-colors hover:bg-slate-50/70">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-slate-900">{c.name || '—'}</p>
-                        <p className="text-xs text-slate-400">{c.candidate_id}</p>
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-xs font-bold text-white">
+                            {initials(c.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-slate-900">{c.name || '—'}</p>
+                            <p className="truncate text-xs text-slate-400">{c.candidate_id}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-slate-600">
                         <p>{c.email || '—'}</p>
@@ -124,9 +149,9 @@ export default function ShortlistedPage() {
                       <td className="px-4 py-3 text-slate-600">{c.jd_title || '—'}</td>
                       <td className="px-4 py-3">
                         {c.match_score != null ? (
-                          <span className="font-semibold text-slate-900">{Math.round(c.match_score)}</span>
+                          <span className={`font-semibold ${scoreTone(c.match_score)}`}>{Math.round(c.match_score)}</span>
                         ) : (
-                          '—'
+                          <span className="text-slate-400">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -147,5 +172,22 @@ export default function ShortlistedPage() {
         )}
       </div>
     </div>
+  )
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
