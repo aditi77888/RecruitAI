@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { authApi, getStoredToken, setStoredToken, type TokenResponse } from './api'
+import { authApi, getStoredToken, setStoredToken, UNAUTHORIZED_EVENT, type TokenResponse } from './api'
 import type { Session } from './types'
 
 interface AuthContextValue {
@@ -55,6 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStoredToken(null)
     setSession(null)
   }, [])
+
+  useEffect(() => {
+    window.addEventListener(UNAUTHORIZED_EVENT, logout)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, logout)
+  }, [logout])
 
   const value = useMemo(() => ({ session, loading, login, logout }), [session, loading, login, logout])
 

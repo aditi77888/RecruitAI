@@ -7,7 +7,7 @@ import { Card } from '../../components/kit/Card'
 import { EmptyState } from '../../components/kit/EmptyState'
 import { Input, Textarea } from '../../components/kit/Input'
 import { Modal } from '../../components/kit/Modal'
-import { PageSpinner } from '../../components/kit/Spinner'
+import { PageSpinner, Spinner } from '../../components/kit/Spinner'
 import { ProgressBar } from '../../components/kit/ProgressBar'
 import { extractErrorMessage, jdApi } from '../../core/api'
 import { useToast } from '../../core/toast'
@@ -95,12 +95,38 @@ export default function DashboardPage() {
   )
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
+
 function JDCard({ jd, onChanged, onDelete }: { jd: JD; onChanged: () => void; onDelete: () => void }) {
   const toast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const addMoreRef = useRef<HTMLInputElement>(null)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [sendingLinks, setSendingLinks] = useState(false)
+
+  function addFiles(files: File[]) {
+    setSelectedFiles((prev) => {
+      const existing = new Set(prev.map((f) => `${f.name}:${f.size}`))
+      const merged = [...prev]
+      for (const f of files) {
+        const key = `${f.name}:${f.size}`
+        if (!existing.has(key)) {
+          existing.add(key)
+          merged.push(f)
+        }
+      }
+      return merged
+    })
+  }
+
+  function removeFile(index: number) {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+  }
 
   async function submitResumes() {
     if (selectedFiles.length === 0) {
@@ -177,20 +203,71 @@ function JDCard({ jd, onChanged, onDelete }: { jd: JD; onChanged: () => void; on
       <div className="mt-auto space-y-4 pt-3">
         <ProgressBar value={jd.shortlisting_progress} label="Shortlisting status" />
 
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center transition-colors hover:border-brand-400 hover:bg-brand-50/50">
-          <UploadIcon className="mb-1.5 h-5 w-5 text-slate-400" />
-          <span className="text-sm font-medium text-slate-600">
-            {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Upload resumes (PDF, DOCX)'}
-          </span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.docx"
-            multiple
-            className="hidden"
-            onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
-          />
-        </label>
+        {selectedFiles.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedFiles.map((file, i) => (
+              <div
+                key={`${file.name}:${file.size}:${i}`}
+                className="flex max-w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5"
+              >
+                <FileIcon className="h-4 w-4 shrink-0 text-slate-400" />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-slate-700" title={file.name}>
+                    {file.name}
+                  </p>
+                  <p className="text-[11px] text-slate-400">{formatFileSize(file.size)}</p>
+                </div>
+                <button
+                  onClick={() => removeFile(i)}
+                  className="shrink-0 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600"
+                  title="Remove file"
+                >
+                  <CloseIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => addMoreRef.current?.click()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 text-slate-400 transition-colors hover:border-brand-400 hover:text-brand-600"
+              title="Add more resumes"
+            >
+              <PlusIcon className="h-4 w-4" />
+            </button>
+            <input
+              ref={addMoreRef}
+              type="file"
+              accept=".pdf,.docx"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                addFiles(Array.from(e.target.files ?? []))
+                e.target.value = ''
+              }}
+            />
+          </div>
+        ) : (
+          <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center transition-colors hover:border-brand-400 hover:bg-brand-50/50">
+            <UploadIcon className="mb-1.5 h-5 w-5 text-slate-400" />
+            <span className="text-sm font-medium text-slate-600">Upload resumes (PDF, DOCX)</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx"
+              multiple
+              className="hidden"
+              onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
+            />
+          </label>
+        )}
+
+        {busy && (
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Spinner className="h-3.5 w-3.5" />
+            <span>
+              Extracting + evaluating {selectedFiles.length} resume(s) against {jd.title}...
+            </span>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <Button variant="secondary" size="sm" loading={sendingLinks} onClick={sendLinks}>
@@ -363,6 +440,23 @@ function UploadIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M12 16V4m0 0 4 4m-4-4-4 4" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function FileIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 3v5h5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

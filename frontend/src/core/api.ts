@@ -36,6 +36,19 @@ http.interceptors.request.use((config) => {
   return config
 })
 
+export const UNAUTHORIZED_EVENT = 'recruitai:unauthorized'
+
+http.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError) => {
+    if (error.response?.status === 401 && getStoredToken()) {
+      setStoredToken(null)
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+    }
+    return Promise.reject(error)
+  },
+)
+
 export class ApiError extends Error {
   status?: number
   constructor(message: string, status?: number) {
