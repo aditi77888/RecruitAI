@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { CallStatusBadge, StatusBadge } from '../../components/kit/Badge'
+import { Button } from '../../components/kit/Button'
 import { EmptyState } from '../../components/kit/EmptyState'
 import { Input } from '../../components/kit/Input'
 import { PageSpinner } from '../../components/kit/Spinner'
@@ -14,21 +15,44 @@ export default function ShortlistedPage() {
   const [candidates, setCandidates] = useState<Candidate[] | null>(null)
   const [jdFilter, setJdFilter] = useState('All JDs')
   const [search, setSearch] = useState('')
+  const [sendingLinks, setSendingLinks] = useState(false)
 
   useEffect(() => {
     jdApi.list().then(setJds).catch(() => undefined)
   }, [])
 
-  useEffect(() => {
+  function refreshCandidates() {
     setCandidates(null)
     candidateApi
       .list({ jd_title: jdFilter === 'All JDs' ? undefined : jdFilter, search: search || undefined })
       .then(setCandidates)
       .catch((err) => toast.show(extractErrorMessage(err), 'error'))
+  }
+
+  useEffect(() => {
+    refreshCandidates()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jdFilter, search])
 
   const jdOptions = useMemo(() => ['All JDs', ...jds.map((jd) => jd.title)], [jds])
+  const selectedJd = useMemo(() => jds.find((jd) => jd.title === jdFilter) ?? null, [jds, jdFilter])
+
+  async function sendLinks() {
+    if (!selectedJd) return
+    setSendingLinks(true)
+    try {
+      const result = await jdApi.sendInterviewLinks(selectedJd.jd_id)
+      toast.show(
+        `Interview links sent: ${result.sent} | skipped: ${result.skipped_no_email} | failed: ${result.failed}`,
+        'info',
+      )
+      refreshCandidates()
+    } catch (err) {
+      toast.show(extractErrorMessage(err), 'error')
+    } finally {
+      setSendingLinks(false)
+    }
+  }
 
   return (
     <div className="animate-fade-in-up">
@@ -57,6 +81,14 @@ export default function ShortlistedPage() {
           ))}
         </select>
       </div>
+
+      {selectedJd && (
+        <div className="mt-4">
+          <Button variant="secondary" size="sm" loading={sendingLinks} onClick={sendLinks}>
+            Send interview links for {selectedJd.title}
+          </Button>
+        </div>
+      )}
 
       <div className="mt-6">
         {candidates === null ? (

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { Button } from '../../components/kit/Button'
+import { Card } from '../../components/kit/Card'
 import { EmptyState } from '../../components/kit/EmptyState'
 import { PageSpinner } from '../../components/kit/Spinner'
 import { candidatePortalApi, extractErrorMessage } from '../../core/api'
@@ -14,8 +15,12 @@ const STATUS_MESSAGE: Record<string, { text: string; tone: 'info' | 'success' }>
   declined: { text: 'You opted out of the interview process.', tone: 'info' },
   evaluated: { text: 'Your interview is complete and under review by the hiring team.', tone: 'info' },
   uploaded: { text: 'Your application is under review.', tone: 'info' },
+  borderline: { text: "You've been shortlisted! The hiring team will email you an interview link soon.", tone: 'success' },
+  shortlisted: { text: "You've been shortlisted! The hiring team will email you an interview link soon.", tone: 'success' },
+  ready_to_call: { text: 'You are shortlisted for a virtual interview — check your mail!', tone: 'success' },
+  called: { text: 'Your interview call is complete and is being processed.', tone: 'info' },
 }
-const DEFAULT_STATUS_MESSAGE = { text: 'You are shortlisted for a virtual interview — check your mail!', tone: 'success' as const }
+const DEFAULT_STATUS_MESSAGE = { text: 'Your application is under review.', tone: 'info' as const }
 
 function statusMessage(status: string) {
   return STATUS_MESSAGE[status] ?? DEFAULT_STATUS_MESSAGE
@@ -33,10 +38,7 @@ export default function PortalPage() {
   const [tab, setTab] = useState<'jobs' | 'applications'>('jobs')
 
   useEffect(() => {
-    candidatePortalApi.companies().then((list) => {
-      setCompanies(list)
-      if (list.length > 0) setSelectedCompanyId(list[0].company_id)
-    })
+    candidatePortalApi.companies().then(setCompanies)
     refreshApplications()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -77,20 +79,12 @@ export default function PortalPage() {
           </div>
         ) : (
           <>
-            <div className="mt-8 flex flex-wrap justify-center gap-2">
-              {companies.map((c) => (
-                <button
-                  key={c.company_id}
-                  onClick={() => setSelectedCompanyId(c.company_id)}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                    selectedCompanyId === c.company_id
-                      ? 'bg-brand-600 text-white shadow-lifted'
-                      : 'bg-white text-slate-600 shadow-card hover:bg-slate-100'
-                  }`}
-                >
-                  {c.company_name}
-                </button>
-              ))}
+            <div className="mt-8 flex justify-center">
+              <CompanyDropdown
+                companies={companies}
+                selectedCompanyId={selectedCompanyId}
+                onSelect={setSelectedCompanyId}
+              />
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
@@ -114,7 +108,11 @@ export default function PortalPage() {
 
             <div className="mt-6">
               {tab === 'jobs' ? (
-                <OpenRolesTab jds={jds} onApplied={refreshApplications} />
+                selectedCompanyId ? (
+                  <OpenRolesTab jds={jds} onApplied={refreshApplications} />
+                ) : (
+                  <EmptyState title="Select a company" description="Choose a company above to see its open roles." />
+                )
               ) : (
                 <ApplicationsTab applications={applications} />
               )}
@@ -138,12 +136,66 @@ export default function PortalPage() {
   )
 }
 
+function CompanyDropdown({
+  companies,
+  selectedCompanyId,
+  onSelect,
+}: {
+  companies: CompanyOut[]
+  selectedCompanyId: string | null
+  onSelect: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const selected = companies.find((c) => c.company_id === selectedCompanyId) ?? null
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  return (
+    <div ref={rootRef} className="relative w-full max-w-xs">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-card transition-colors hover:border-slate-300"
+      >
+        <span className={selected ? 'text-slate-900' : 'text-slate-400'}>
+          {selected ? selected.company_name : 'Select a company'}
+        </span>
+        <ChevronIcon className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-10 mt-1.5 w-full overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lifted">
+          {companies.map((c) => (
+            <button
+              key={c.company_id}
+              onClick={() => {
+                onSelect(c.company_id)
+                setOpen(false)
+              }}
+              className={`flex w-full items-center px-4 py-2 text-left text-sm transition-colors hover:bg-slate-50 ${
+                c.company_id === selectedCompanyId ? 'font-semibold text-brand-700' : 'text-slate-600'
+              }`}
+            >
+              {c.company_name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function OpenRolesTab({ jds, onApplied }: { jds: JD[]; onApplied: () => void }) {
   if (jds.length === 0) {
     return <EmptyState title="No open roles from this company yet" />
   }
   return (
-    <div className="space-y-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {jds.map((jd) => (
         <JobCard key={jd.jd_id} jd={jd} onApplied={onApplied} />
       ))}
@@ -180,7 +232,7 @@ function JobCard({ jd, onApplied }: { jd: JD; onApplied: () => void }) {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-card">
+    <Card padded={false} className="flex flex-col overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
@@ -221,7 +273,7 @@ function JobCard({ jd, onApplied }: { jd: JD; onApplied: () => void }) {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
