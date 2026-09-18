@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 
 import { Button } from '../components/kit/Button'
 import { Input } from '../components/kit/Input'
+import { Logo } from '../components/kit/Logo'
 import { authApi, extractErrorMessage } from '../core/api'
 import { useAuth } from '../core/auth'
 import { useToast } from '../core/toast'
@@ -36,9 +37,7 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-md animate-fade-in-up">
           <div className="mb-8 text-center lg:hidden">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-accent-500 text-lg font-bold text-white">
-              R
-            </div>
+            <Logo className="mx-auto mb-3 h-10 w-10" />
             <h1 className="font-display text-2xl font-bold text-slate-900">RecruitAI</h1>
           </div>
 
@@ -68,15 +67,11 @@ export default function LoginPage() {
             <h2 className="text-xl font-semibold text-slate-900">
               {mode === 'login' ? 'Welcome back' : 'Create your account'}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {userType === 'company'
-                ? mode === 'login'
-                  ? 'Log in to manage your hiring pipeline.'
-                  : "Set up your company's hiring workspace."
-                : mode === 'login'
-                  ? 'Log in to track your applications.'
-                  : 'Sign up to apply to open roles.'}
-            </p>
+            {mode === 'signup' && (
+              <p className="mt-1 text-sm text-slate-500">
+                {userType === 'company' ? "Set up your company's hiring workspace." : 'Sign up to apply to open roles.'}
+              </p>
+            )}
 
             <div className="mt-6">
               {userType === 'company' ? (
@@ -110,7 +105,7 @@ export default function LoginPage() {
 
 function BrandPanel() {
   return (
-    <div className="relative hidden w-[42%] shrink-0 overflow-hidden bg-ink-900 lg:flex lg:flex-col lg:justify-between lg:p-12">
+    <div className="relative hidden w-[42%] shrink-0 overflow-hidden bg-ink-900 lg:flex lg:flex-col lg:p-12">
       <div
         className="pointer-events-none absolute inset-0 opacity-60"
         style={{
@@ -118,40 +113,14 @@ function BrandPanel() {
             'radial-gradient(60% 60% at 20% 15%, rgba(99,102,241,0.35), transparent), radial-gradient(50% 50% at 85% 80%, rgba(168,85,247,0.28), transparent)',
         }}
       />
-      <div className="relative flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 text-base font-bold text-white">
-          R
-        </div>
-        <span className="font-display text-xl font-semibold text-white">RecruitAI</span>
+
+      <div className="relative flex flex-1 flex-col items-center justify-center text-center">
+        <Logo className="h-24 w-24" />
+        <h1 className="mt-6 font-display text-3xl font-semibold text-white">RecruitAI</h1>
+        <p className="mt-3 text-sm leading-relaxed text-slate-400">Screen, Shortlist, Interview — Autonomously.</p>
       </div>
 
-      <div className="relative">
-        <h1 className="font-display text-4xl font-semibold leading-tight text-white">
-          Hire faster with an AI-run pipeline.
-        </h1>
-        <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
-          Post a role, let AI shortlist resumes and run the first-round interview, then review
-          every transcript and score in one place.
-        </p>
-
-        <div className="mt-10 grid gap-4">
-          {[
-            ['Automatic resume shortlisting', 'Every resume scored against your job description.'],
-            ['AI voice interviews', 'Shortlisted candidates talk to an AI interviewer on their own time.'],
-            ['Evaluation reports', 'Full transcripts, strengths, and weaknesses for every call.'],
-          ].map(([title, desc]) => (
-            <div key={title} className="flex items-start gap-3">
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400" />
-              <div>
-                <p className="text-sm font-medium text-white">{title}</p>
-                <p className="text-sm text-slate-400">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <p className="relative text-xs text-slate-500">&copy; {new Date().getFullYear()} RecruitAI</p>
+      <p className="relative text-center text-xs text-slate-500">&copy; {new Date().getFullYear()} RecruitAI</p>
     </div>
   )
 }
