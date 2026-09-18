@@ -219,10 +219,16 @@ function JobCard({ jd, onApplied }: { jd: JD; onApplied: () => void }) {
     try {
       const shortlist = await candidatePortalApi.apply(jd.jd_id, file)
       onApplied()
-      if (shortlist.evaluated === 0) {
+      if (shortlist.evaluated === 0 || shortlist.errors.length > 0) {
         setResult({ text: "We couldn't process your resume just now. Please try again in a moment.", tone: 'info' })
       } else {
-        setResult(statusMessage(shortlist.shortlisted > 0 ? 'shortlisted' : 'uploaded'))
+        // shortlist.shortlisted/evaluated are counts across every candidate
+        // ever evaluated for this JD, not this applicant's own outcome --
+        // look up this candidate's actual status instead of inferring it
+        // from those batch totals.
+        const applications = await candidatePortalApi.myApplications()
+        const mine = applications.find((a) => a.jd_id === jd.jd_id)
+        setResult(statusMessage(mine?.status ?? 'uploaded'))
       }
     } catch (err) {
       toast.show(extractErrorMessage(err), 'error')
