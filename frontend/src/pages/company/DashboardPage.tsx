@@ -147,8 +147,13 @@ function JDCard({ jd, onChanged, onDelete }: { jd: JD; onChanged: () => void; on
     setBusy(true)
     try {
       const result = await jdApi.uploadResumes(jd.jd_id, selectedFiles)
+      // evaluated/shortlisted/ready_to_call are running totals for the whole
+      // JD (every resume ever evaluated against it), not just this upload --
+      // phrase them as the JD's totals rather than implying they describe
+      // only the resumes just submitted.
       toast.show(
-        `Evaluated ${result.evaluated} resume(s): ${result.shortlisted} shortlisted, ${result.ready_to_call} call-ready.`,
+        `Uploaded ${result.total_resumes} resume(s), ${result.passed_embedding_filter} passed the initial screen. ` +
+          `This job opening now has ${result.evaluated} evaluated total — ${result.shortlisted} shortlisted, ${result.ready_to_call} call-ready.`,
         'success',
       )
       if (result.errors.length > 0) {
