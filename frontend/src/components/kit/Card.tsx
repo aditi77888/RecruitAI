@@ -16,20 +16,36 @@ export function Card({ children, padded = true, className = '', ...rest }: CardP
   )
 }
 
+const ICON_TONE_STYLES = {
+  brand: 'bg-brand-50 text-brand-600',
+  rose: 'bg-rose-100 text-rose-600',
+}
+
 export function CardHeader({
   title,
   subtitle,
   action,
+  icon,
+  iconTone = 'brand',
 }: {
   title: ReactNode
   subtitle?: ReactNode
   action?: ReactNode
+  icon?: ReactNode
+  iconTone?: keyof typeof ICON_TONE_STYLES
 }) {
   return (
     <div className="mb-4 flex items-start justify-between gap-4">
-      <div>
-        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-        {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+      <div className="flex items-start gap-3">
+        {icon && (
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${ICON_TONE_STYLES[iconTone]}`}>
+            {icon}
+          </div>
+        )}
+        <div>
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+        </div>
       </div>
       {action}
     </div>

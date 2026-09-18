@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 
 import { useAuth } from '../../core/auth'
+import { Logo } from '../kit/Logo'
 
 const NAV_ITEMS = [
   { to: '/app', label: 'Dashboard', icon: HomeIcon, end: true },
@@ -11,20 +12,26 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { session } = useAuth()
+  const initial = session?.displayName?.trim()?.[0]?.toUpperCase() ?? '?'
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col bg-ink-900 text-slate-300">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-white/5 bg-ink-900 text-slate-300">
       <div className="flex items-center gap-2.5 px-6 py-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 text-sm font-bold text-white">
-          R
-        </div>
+        <Logo className="h-8 w-8" />
         <span className="font-display text-lg font-semibold text-white">RecruitAI</span>
       </div>
 
-      <div className="mx-4 mb-2 rounded-xl bg-white/5 px-3.5 py-3">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Signed in as</p>
-        <p className="mt-0.5 truncate text-sm font-semibold text-white">{session?.displayName}</p>
+      <div className="mx-4 mb-3 flex items-center gap-3 rounded-xl bg-white/5 px-3.5 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-sm font-bold text-white">
+          {initial}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Signed in as</p>
+          <p className="truncate text-sm font-semibold text-white">{session?.displayName}</p>
+        </div>
       </div>
+
+      <div className="mx-4 mb-2 h-px bg-white/5" />
 
       <nav className="mt-2 flex-1 space-y-1 px-3">
         {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
@@ -33,18 +40,28 @@ export function Sidebar() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 ${
+              `group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 ${
                 isActive ? 'bg-brand-600 text-white shadow-lifted' : 'text-slate-400 hover:bg-white/5 hover:text-white'
               }`
             }
           >
-            <Icon className="h-4.5 w-4.5" />
-            {label}
+            {({ isActive }) => (
+              <>
+                <span
+                  className={`absolute left-0 top-1/2 h-4 w-1 -translate-y-1/2 rounded-r-full bg-white transition-opacity duration-150 ${
+                    isActive ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
+                <Icon className="h-4.5 w-4.5 shrink-0" />
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="px-6 py-5 text-xs text-slate-600">RecruitAI &copy; {new Date().getFullYear()}</div>
+      <div className="mx-4 mb-4 h-px bg-white/5" />
+      <div className="px-6 pb-6 text-xs text-slate-600">RecruitAI &copy; {new Date().getFullYear()}</div>
     </aside>
   )
 }
