@@ -7,8 +7,10 @@ import { Card } from '../../components/kit/Card'
 import { EmptyState } from '../../components/kit/EmptyState'
 import { Input, Textarea } from '../../components/kit/Input'
 import { Modal } from '../../components/kit/Modal'
+import { PageHeader } from '../../components/kit/PageHeader'
 import { PageSpinner, Spinner } from '../../components/kit/Spinner'
 import { ProgressBar } from '../../components/kit/ProgressBar'
+import { Stat } from '../../components/kit/Stat'
 import { extractErrorMessage, jdApi } from '../../core/api'
 import { useToast } from '../../core/toast'
 import type { JD } from '../../core/types'
@@ -44,19 +46,28 @@ export default function DashboardPage() {
     }
   }
 
+  const totalCandidates = jds?.reduce((sum, jd) => sum + jd.total_candidates, 0) ?? 0
+  const avgProgress = jds && jds.length > 0 ? Math.round(jds.reduce((s, jd) => s + jd.shortlisting_progress, 0) / jds.length) : 0
+
   return (
     <div className="animate-fade-in-up">
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Upload resumes against a job opening. Shortlisting runs automatically from here.
-          </p>
+      <PageHeader
+        title="Dashboard"
+        description="Upload resumes against a job opening. Shortlisting runs automatically from here."
+        actions={
+          <Button onClick={() => setShowCreate(true)} icon={<PlusIcon className="h-4 w-4" />}>
+            New job opening
+          </Button>
+        }
+      />
+
+      {jds !== null && jds.length > 0 && (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Stat label="Open roles" value={jds.length} icon={<BriefcaseIcon className="h-5 w-5" />} tone="brand" />
+          <Stat label="Total candidates" value={totalCandidates} icon={<UsersIcon className="h-5 w-5" />} tone="accent" />
+          <Stat label="Avg. shortlisting progress" value={`${avgProgress}%`} icon={<ChartIcon className="h-5 w-5" />} tone="emerald" />
         </div>
-        <Button onClick={() => setShowCreate(true)} icon={<PlusIcon className="h-4 w-4" />}>
-          New job opening
-        </Button>
-      </div>
+      )}
 
       {jds === null ? (
         <PageSpinner />
@@ -136,8 +147,13 @@ function JDCard({ jd, onChanged, onDelete }: { jd: JD; onChanged: () => void; on
     setBusy(true)
     try {
       const result = await jdApi.uploadResumes(jd.jd_id, selectedFiles)
+      // evaluated/shortlisted/ready_to_call are running totals for the whole
+      // JD (every resume ever evaluated against it), not just this upload --
+      // phrase them as the JD's totals rather than implying they describe
+      // only the resumes just submitted.
       toast.show(
-        `Evaluated ${result.evaluated} resume(s): ${result.shortlisted} shortlisted, ${result.ready_to_call} call-ready.`,
+        `Uploaded ${result.total_resumes} resume(s), ${result.passed_embedding_filter} passed the initial screen. ` +
+          `This job opening now has ${result.evaluated} evaluated total — ${result.shortlisted} shortlisted, ${result.ready_to_call} call-ready.`,
         'success',
       )
       if (result.errors.length > 0) {
@@ -172,13 +188,18 @@ function JDCard({ jd, onChanged, onDelete }: { jd: JD; onChanged: () => void; on
   return (
     <Card className="flex flex-col">
       <div className="mb-1 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-slate-900">{jd.title}</h3>
-          <p className="mt-0.5 text-sm text-slate-500">{jd.total_candidates} total candidate(s)</p>
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-accent-500 text-sm font-bold text-white">
+            {jd.title.trim()[0]?.toUpperCase() ?? 'J'}
+          </div>
+          <div className="min-w-0">
+            <h3 className="truncate font-semibold text-slate-900">{jd.title}</h3>
+            <p className="mt-0.5 text-sm text-slate-500">{jd.total_candidates} total candidate(s)</p>
+          </div>
         </div>
         <button
           onClick={onDelete}
-          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+          className="shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
           title="Delete this job opening"
         >
           <TrashIcon className="h-4 w-4" />
@@ -186,7 +207,7 @@ function JDCard({ jd, onChanged, onDelete }: { jd: JD; onChanged: () => void; on
       </div>
 
       {jd.must_have_skills && (
-        <div className="mb-4 mt-2 flex flex-wrap gap-1.5">
+        <div className="mb-4 mt-3 flex flex-wrap gap-1.5">
           {jd.must_have_skills
             .split(',')
             .map((s) => s.trim())
@@ -200,7 +221,7 @@ function JDCard({ jd, onChanged, onDelete }: { jd: JD; onChanged: () => void; on
         </div>
       )}
 
-      <div className="mt-auto space-y-4 pt-3">
+      <div className="mt-auto space-y-4 border-t border-slate-100 pt-4">
         <ProgressBar value={jd.shortlisting_progress} label="Shortlisting status" />
 
         {selectedFiles.length > 0 ? (
@@ -466,6 +487,25 @@ function BriefcaseIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <rect x="3" y="7" width="18" height="13" rx="2" />
       <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function UsersIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M2.5 20c0-4 3-6.5 6.5-6.5s6.5 2.5 6.5 6.5" strokeLinecap="round" />
+      <path d="M15.5 8.3a3.2 3.2 0 1 1 3.2 3.2" strokeLinecap="round" />
+      <path d="M15 13.7c2.8.4 4.5 2.6 4.5 6.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ChartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M5 19V9M12 19V5M19 19v-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

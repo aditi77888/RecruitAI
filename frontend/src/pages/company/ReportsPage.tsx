@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Badge } from '../../components/kit/Badge'
 import { Card, CardHeader } from '../../components/kit/Card'
 import { EmptyState } from '../../components/kit/EmptyState'
+import { PageHeader } from '../../components/kit/PageHeader'
 import { PageSpinner } from '../../components/kit/Spinner'
 import { extractErrorMessage, reportsApi } from '../../core/api'
 import { useToast } from '../../core/toast'
@@ -22,17 +23,17 @@ export default function ReportsPage() {
 
   return (
     <div className="animate-fade-in-up">
-      <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Post-call evaluation outcomes, one section per job opening. Expand a candidate to see the full transcript
-        and how the AI reached its evaluation.
-      </p>
+      <PageHeader
+        title="Reports"
+        description="Post-call evaluation outcomes, one section per job opening. Expand a candidate to see the full transcript and how the AI reached its evaluation."
+      />
 
-      <div className="mt-6 space-y-6">
+      <div className="space-y-6">
         {groups === null ? (
           <PageSpinner />
         ) : groups.length === 0 ? (
           <EmptyState
+            icon={<ClipboardIcon className="h-5 w-5" />}
             title="No evaluations yet"
             description="Reports appear here once candidates complete their AI interviews."
           />
@@ -47,7 +48,11 @@ export default function ReportsPage() {
 function ReportSection({ group }: { group: ReportGroup }) {
   return (
     <Card>
-      <CardHeader title={`${group.jd_title} candidates`} subtitle={`${group.rows.length} evaluated`} />
+      <CardHeader
+        icon={<ClipboardIcon className="h-4.5 w-4.5" />}
+        title={`${group.jd_title} candidates`}
+        subtitle={`${group.rows.length} evaluated`}
+      />
       <div className="overflow-hidden rounded-xl border border-slate-200">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -71,17 +76,28 @@ function ReportSection({ group }: { group: ReportGroup }) {
 
 function ReportRowItem({ row }: { row: ReportRow }) {
   const [open, setOpen] = useState(false)
+  const selected = row.selected === 'Yes'
 
   return (
     <>
-      <tr className="cursor-pointer hover:bg-slate-50/70" onClick={() => setOpen(!open)}>
-        <td className="px-4 py-3 font-medium text-slate-900">{row.name || '—'}</td>
+      <tr className="cursor-pointer transition-colors hover:bg-slate-50/70" onClick={() => setOpen(!open)}>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <ChevronIcon className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`} />
+            <span className="font-medium text-slate-900">{row.name || '—'}</span>
+          </div>
+        </td>
         <td className="max-w-sm px-4 py-3 text-slate-500">
           <p className="line-clamp-2">{row.evaluation_summary || '—'}</p>
         </td>
         <td className="px-4 py-3 font-semibold text-slate-900">{row.score != null ? Math.round(row.score) : '—'}</td>
         <td className="px-4 py-3">
-          <Badge tone={row.selected === 'Yes' ? 'emerald' : 'rose'}>{row.selected}</Badge>
+          <Badge tone={selected ? 'emerald' : 'rose'}>
+            <span className="flex items-center gap-1">
+              {selected ? <CheckIcon className="h-3 w-3" /> : <CrossIcon className="h-3 w-3" />}
+              {row.selected}
+            </span>
+          </Badge>
         </td>
       </tr>
       {open && (
@@ -119,5 +135,39 @@ function ReportRowItem({ row }: { row: ReportRow }) {
         </tr>
       )}
     </>
+  )
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+      <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CrossIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+      <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ClipboardIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="6" y="4" width="12" height="17" rx="2" />
+      <path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" strokeLinecap="round" />
+      <path d="M9 11h6M9 15h6" strokeLinecap="round" />
+    </svg>
   )
 }
