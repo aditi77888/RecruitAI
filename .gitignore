@@ -47,10 +47,14 @@ credentials.json
 *.sqlite
 *.sqlite3
 
-# Candidate uploaded data, caches, checkpoints
+# Candidate uploaded data, caches, checkpoints -- contains resume text and
+# candidate PII (name/phone/email), must never be committed
 uii/uploaded_resumes/
 uii/cache/
 uii/checkpoints/
+api/uploaded_resumes/
+phase0/cache/
+phase0/checkpoints/
 
 # Old UI folder
 ui/
