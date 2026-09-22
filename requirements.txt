@@ -23,6 +23,11 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
 httpx>=0.27.0
 loguru>=0.7.2
+websockets>=13.0
+python-multipart>=0.0.9
+
+# Auth (API session tokens -- api/security.py)
+PyJWT>=2.9.0
 
 # Scheduling & Utilities
 APScheduler>=3.10.0
