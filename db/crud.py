@@ -308,6 +308,8 @@ def _candidate_to_dict(c: Candidate) -> dict:
         "ready_to_call": c.ready_to_call,
         "call_status": c.call_status,
         "error_log": c.error_log,
+        # naive UTC -- mark it explicitly so the frontend doesn't parse it as local time
+        "created_at": (c.created_at.isoformat() + "Z") if c.created_at else None,
     }
 
 

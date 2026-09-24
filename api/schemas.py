@@ -174,3 +174,4 @@ class ApplicationOut(BaseModel):
     company_name: str | None = None
     status: str
     match_score: float | None = None
+    created_at: str | None = None
