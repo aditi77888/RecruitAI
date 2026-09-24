@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/kit/EmptyState'
 import { Input } from '../../components/kit/Input'
 import { Logo } from '../../components/kit/Logo'
 import { PageSpinner, Spinner } from '../../components/kit/Spinner'
+import { ScoreRing } from '../../components/kit/ScoreRing'
 import { Stat } from '../../components/kit/Stat'
 import { candidatePortalApi, extractErrorMessage } from '../../core/api'
 import { useAuth } from '../../core/auth'
@@ -42,6 +43,12 @@ interface StatusInfo {
 
 const STEP_LABELS = ['Applied', 'Reviewed', 'Interview', 'Decision']
 
+// How long a candidate's initial screening decision (shortlisted / borderline /
+// rejected) stays hidden behind a generic "under process" message before the
+// real outcome is revealed in "My applications".
+const DECISION_REVEAL_DELAY_MS = 5 * 60 * 1000
+const GATED_DECISION_STATUSES = new Set(['shortlisted', 'borderline', 'rejected'])
+
 const STATUS_INFO: Record<string, StatusInfo> = {
   uploaded: {
     step: 1,
@@ -49,23 +56,29 @@ const STATUS_INFO: Record<string, StatusInfo> = {
     title: 'Application submitted',
     description: 'Your resume has been received and is queued for review.',
   },
+  awaiting_decision: {
+    step: 1,
+    tone: 'pending',
+    title: 'Resume under process',
+    description: "Your resume is under process — check 'My applications' after some time.",
+  },
   shortlisted: {
     step: 2,
     tone: 'success',
-    title: "You've been shortlisted",
-    description: 'The hiring team will email you an interview link soon.',
+    title: 'Keep an eye on your mail',
+    description: "Keep an eye on your mail — you'll be notified there.",
   },
   borderline: {
     step: 2,
     tone: 'success',
-    title: 'Under further review',
-    description: "You're a promising match — the hiring team is taking a closer look.",
+    title: 'Keep an eye on your mail',
+    description: "Keep an eye on your mail — you'll be notified there.",
   },
   rejected: {
     step: 2,
     tone: 'error',
     title: 'Not shortlisted',
-    description: 'Thank you for applying — you have not been shortlisted for this role.',
+    description: 'You have not been shortlisted for this specific role.',
   },
   declined: {
     step: 2,
@@ -133,6 +146,20 @@ function statusInfo(status: string): StatusInfo {
   return STATUS_INFO[status] ?? DEFAULT_STATUS_INFO
 }
 
+// The screening pipeline actually runs (and sets the real status) synchronously
+// during upload, but we don't want to reveal shortlisted/rejected to the
+// candidate right away -- hold it behind a generic "under process" message
+// until DECISION_REVEAL_DELAY_MS has passed since they applied.
+function displayStatusInfo(status: string, createdAt: string | null | undefined): StatusInfo {
+  if (GATED_DECISION_STATUSES.has(status) && createdAt) {
+    const appliedAt = new Date(createdAt).getTime()
+    if (!Number.isNaN(appliedAt) && Date.now() - appliedAt < DECISION_REVEAL_DELAY_MS) {
+      return STATUS_INFO.awaiting_decision
+    }
+  }
+  return statusInfo(status)
+}
+
 const TONE_DOT: Record<Tone, string> = {
   pending: 'bg-brand-500',
   success: 'bg-emerald-500',
@@ -146,8 +173,8 @@ const TONE_PANEL: Record<Tone, string> = {
   neutral: 'bg-slate-100 text-slate-600',
 }
 
-function StatusPanel({ status }: { status: string }) {
-  const info = statusInfo(status)
+function StatusPanel({ status, createdAt }: { status: string; createdAt?: string | null }) {
+  const info = displayStatusInfo(status, createdAt)
   return (
     <div className={`flex items-start gap-2.5 rounded-xl px-3.5 py-2.5 text-sm ${TONE_PANEL[info.tone]}`}>
       <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[info.tone]}`} />
@@ -158,8 +185,8 @@ function StatusPanel({ status }: { status: string }) {
   )
 }
 
-function StatusTimeline({ status }: { status: string }) {
-  const info = statusInfo(status)
+function StatusTimeline({ status, createdAt }: { status: string; createdAt?: string | null }) {
+  const info = displayStatusInfo(status, createdAt)
   return (
     <div className="flex items-center">
       {STEP_LABELS.map((label, i) => {
@@ -201,34 +228,6 @@ function StatusTimeline({ status }: { status: string }) {
   )
 }
 
-function ScoreRing({ score }: { score: number }) {
-  const pct = Math.max(0, Math.min(100, Math.round(score)))
-  const r = 18
-  const c = 2 * Math.PI * r
-  const offset = c - (pct / 100) * c
-  const color = pct >= 70 ? '#10b981' : pct >= 40 ? '#6366f1' : '#f43f5e'
-  return (
-    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
-      <svg viewBox="0 0 44 44" className="h-12 w-12 -rotate-90">
-        <circle cx="22" cy="22" r={r} fill="none" stroke="#eef0f4" strokeWidth="4" />
-        <circle
-          cx="22"
-          cy="22"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-          className="transition-[stroke-dashoffset] duration-500 ease-out"
-        />
-      </svg>
-      <span className="absolute text-[11px] font-bold text-slate-700">{pct}</span>
-    </div>
-  )
-}
-
 // ---------------------------------------------------------------- Page
 
 export default function PortalPage() {
@@ -249,7 +248,17 @@ export default function PortalPage() {
       .companies()
       .then(setCompanies)
       .catch((err) => toast.show(extractErrorMessage(err), 'error'))
-    refreshApplications()
+    // A returning candidate should land straight on their applications --
+    // company/role for each is shown right there -- rather than on the
+    // "browse companies" tab, which only matters before they've applied.
+    candidatePortalApi
+      .myApplications()
+      .then((apps) => {
+        const deduped = dedupeByJd(apps)
+        setApplications(deduped)
+        if (deduped.length > 0) setTopTab('applications')
+      })
+      .catch((err) => toast.show(extractErrorMessage(err), 'error'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -336,9 +345,13 @@ export default function PortalPage() {
       </header>
 
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <div className="text-center">
-          <p className="font-display text-2xl font-bold text-slate-900">Find your next role, powered by AI</p>
-          <p className="mx-auto mt-1.5 max-w-md text-sm text-slate-500">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-500 to-accent-500 px-6 py-10 text-center shadow-lifted sm:px-10">
+          <SparkleIcon className="absolute -right-4 -top-4 h-28 w-28 text-white/10" />
+          <SparkleIcon className="absolute bottom-2 left-6 h-14 w-14 text-white/10" />
+          <p className="relative font-display text-2xl font-bold text-white sm:text-3xl">
+            {firstName ? `Hey ${firstName}, find your next role` : 'Find your next role, powered by AI'}
+          </p>
+          <p className="relative mx-auto mt-1.5 max-w-md text-sm text-brand-50/90">
             Browse open roles from every company on RecruitAI and apply in a couple of clicks.
           </p>
         </div>
@@ -597,6 +610,124 @@ function CompanyDetail({
   )
 }
 
+// ---------------------------------------------------------------- Job description
+
+// The recruiter's raw JD text has no guaranteed structure (typed free-form or
+// extracted from a PDF/DOCX by the LLM parser), so we heuristically split it
+// into headings/bullets/paragraphs for a readable "structured" view instead
+// of dumping it as one pre-wrapped blob.
+type JdBlock = { kind: 'heading'; text: string } | { kind: 'list'; items: string[] } | { kind: 'paragraph'; text: string }
+
+const BULLET_LINE_RE = /^\s*(?:[-*•▪●]|\d+[.)])\s+(.+)/
+const HEADING_LINE_RE = /^[A-Za-z][A-Za-z0-9 /&'-]{2,60}:$/
+
+function parseJdBlocks(raw: string): JdBlock[] {
+  const blocks: JdBlock[] = []
+  let paragraphBuf: string[] = []
+  let listBuf: string[] = []
+
+  const flushParagraph = () => {
+    if (paragraphBuf.length > 0) {
+      blocks.push({ kind: 'paragraph', text: paragraphBuf.join(' ').trim() })
+      paragraphBuf = []
+    }
+  }
+  const flushList = () => {
+    if (listBuf.length > 0) {
+      blocks.push({ kind: 'list', items: listBuf })
+      listBuf = []
+    }
+  }
+
+  for (const rawLine of raw.replace(/\r\n/g, '\n').split('\n')) {
+    const line = rawLine.trim()
+    if (!line) {
+      flushParagraph()
+      continue
+    }
+    const bulletMatch = line.match(BULLET_LINE_RE)
+    if (bulletMatch) {
+      flushParagraph()
+      listBuf.push(bulletMatch[1].trim())
+      continue
+    }
+    flushList()
+    if (HEADING_LINE_RE.test(line)) {
+      flushParagraph()
+      blocks.push({ kind: 'heading', text: line.replace(/:$/, '') })
+      continue
+    }
+    paragraphBuf.push(line)
+  }
+  flushParagraph()
+  flushList()
+  return blocks
+}
+
+function splitSkills(csv: string | null): string[] {
+  return csv?.split(',').map((s) => s.trim()).filter(Boolean) ?? []
+}
+
+function SkillGroup({ label, tone, skills }: { label: string; tone: 'indigo' | 'sky'; skills: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+      {skills.map((skill) => (
+        <Badge key={skill} tone={tone}>
+          {skill}
+        </Badge>
+      ))}
+    </div>
+  )
+}
+
+function JobDescription({ jd }: { jd: JD }) {
+  const blocks = useMemo(() => parseJdBlocks(jd.jd_text), [jd.jd_text])
+  const mustHave = useMemo(() => splitSkills(jd.must_have_skills), [jd.must_have_skills])
+  const niceToHave = useMemo(() => splitSkills(jd.nice_to_have_skills), [jd.nice_to_have_skills])
+
+  return (
+    <div className="space-y-4">
+      {(mustHave.length > 0 || niceToHave.length > 0 || !!jd.min_experience) && (
+        <div className="space-y-2 rounded-xl bg-slate-50 p-3.5">
+          {mustHave.length > 0 && <SkillGroup label="Must have" tone="indigo" skills={mustHave} />}
+          {niceToHave.length > 0 && <SkillGroup label="Nice to have" tone="sky" skills={niceToHave} />}
+          {!!jd.min_experience && (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+              <ClockIcon className="h-3.5 w-3.5" />
+              {jd.min_experience}+ years of experience
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {blocks.map((block, i) =>
+          block.kind === 'heading' ? (
+            <h4 key={i} className="flex items-center gap-1.5 pt-1 text-sm font-semibold text-slate-800">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" />
+              {block.text}
+            </h4>
+          ) : block.kind === 'list' ? (
+            <ul key={i} className="space-y-1.5">
+              {block.items.map((item, j) => (
+                <li key={j} className="flex items-start gap-2 text-sm text-slate-600">
+                  <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-500" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p key={i} className="text-sm leading-relaxed text-slate-600">
+              {block.text}
+            </p>
+          ),
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------- Job card
 
 function JobCard({
@@ -628,13 +759,10 @@ function JobCard({
       if (shortlist.evaluated === 0 || shortlist.errors.length > 0) {
         setResult('__eval_failed__')
       } else {
-        // shortlist.shortlisted/evaluated are counts across every candidate
-        // ever evaluated for this JD, not this applicant's own outcome --
-        // look up this candidate's actual status instead of inferring it
-        // from those batch totals.
-        const applications = await candidatePortalApi.myApplications()
-        const mine = applications.find((a) => a.jd_id === jd.jd_id)
-        setResult(mine?.status ?? 'uploaded')
+        // Don't reveal the real screening outcome yet -- the candidate sees
+        // a generic "under process" message until displayStatusInfo's reveal
+        // delay has passed (checked against the real status in "My applications").
+        setResult('awaiting_decision')
       }
     } catch (err) {
       toast.show(extractErrorMessage(err), 'error')
@@ -657,7 +785,7 @@ function JobCard({
             <span className="block truncate font-semibold text-slate-900">{jd.title}</span>
             {existingApplication && !open && (
               <span className="text-xs font-medium text-brand-600">
-                {statusInfo(existingApplication.status).title}
+                {displayStatusInfo(existingApplication.status, existingApplication.created_at).title}
               </span>
             )}
           </div>
@@ -666,26 +794,11 @@ function JobCard({
       </button>
       {open && (
         <div className="border-t border-slate-100 px-5 py-4">
-          <p className="whitespace-pre-wrap text-sm text-slate-600">{jd.jd_text}</p>
-
-          {(jd.must_have_skills || !!jd.min_experience) && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {jd.must_have_skills
-                ?.split(',')
-                .map((s) => s.trim())
-                .filter(Boolean)
-                .map((skill) => (
-                  <Badge key={skill} tone="indigo">
-                    {skill}
-                  </Badge>
-                ))}
-              {!!jd.min_experience && <Badge tone="slate">{jd.min_experience}+ yrs experience</Badge>}
-            </div>
-          )}
+          <JobDescription jd={jd} />
 
           {existingApplication && !result && (
             <div className="mt-4">
-              <StatusPanel status={existingApplication.status} />
+              <StatusPanel status={existingApplication.status} createdAt={existingApplication.created_at} />
             </div>
           )}
 
@@ -744,11 +857,11 @@ function ApplicationCard({ app, showCompany }: { app: Application; showCompany: 
       </div>
 
       <div className="mt-5">
-        <StatusTimeline status={app.status} />
+        <StatusTimeline status={app.status} createdAt={app.created_at} />
       </div>
 
       <div className="mt-4">
-        <StatusPanel status={app.status} />
+        <StatusPanel status={app.status} createdAt={app.created_at} />
       </div>
     </Card>
   )
@@ -827,6 +940,32 @@ function PhoneIcon({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </svg>
+  )
+}
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2c.5 4.2 2.3 6 6.5 6.5-4.2.5-6 2.3-6.5 6.5-.5-4.2-2.3-6-6.5-6.5C9.7 8 11.5 6.2 12 2Z" />
+      <path d="M19 15c.3 2 1.1 2.9 3 3.2-1.9.3-2.7 1.1-3 3.1-.3-2-1.1-2.8-3-3.1 1.9-.3 2.7-1.2 3-3.2Z" />
+    </svg>
+  )
+}
+
+function ClockIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

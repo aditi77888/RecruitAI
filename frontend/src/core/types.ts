@@ -102,4 +102,5 @@ export interface Application {
   company_name: string | null
   status: string
   match_score: number | null
+  created_at: string | null
 }
