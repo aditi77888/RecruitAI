@@ -25,6 +25,18 @@ def _candidate_id(jd_id: str, resume_hash: str) -> str:
     return f"{jd_id}-{resume_hash[:16]}"
 
 
+def _normalize_name(name: str | None) -> str:
+    # Resumes often style the candidate's name header in ALL CAPS, which the
+    # LLM extracts verbatim -- and this name flows straight into Dograh's
+    # {{initial_context.candidate_name}} for the interview greeting, where
+    # most TTS engines (including Cartesia) read an all-caps word as an
+    # acronym and spell it out letter by letter instead of saying it.
+    # Only touch names that are actually all-caps so an already
+    # correctly-cased name (mixed case, etc.) is never altered.
+    name = name or ""
+    return name.title() if name.isupper() else name
+
+
 # LLM verdict ("shortlist"/"reject"/"borderline") -> Candidate.status
 # (kept as its own map so the status vocabulary can evolve independently
 # of the LLM's JSON contract)
@@ -72,7 +84,7 @@ def sync_evaluations_to_db(
             crud.create_candidate(
                 candidate_id=candidate_id,
                 jd_id=ev.jd_id,
-                name=ev.candidate_name or "",
+                name=_normalize_name(ev.candidate_name),
                 phone=ev.candidate_phone or "",
                 email=ev.candidate_email or "",
                 resume_link=resume_link_map.get(ev.resume_hash, ""),
