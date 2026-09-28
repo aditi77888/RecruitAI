@@ -1,0 +1,239 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;450;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Inter Tight', 'Inter', system-ui, sans-serif;
+
+  /* ---------------------------------------------------------------- Surfaces */
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f1f1ee;
+  --color-surface-hover: #fafaf8;
+
+  /* ---------------------------------------------------------------- Text */
+  --color-text: #17181a;
+  --color-text-secondary: #667085;
+  --color-text-tertiary: #9a9d9f;
+  --color-text-inverse: #f7f7f5;
+
+  /* ---------------------------------------------------------------- Borders */
+  --color-border: #e7e7e5;
+  --color-border-strong: #d7d7d3;
+
+  /* ---------------------------------------------------------------- Accent */
+  --color-accent: #3158d4;
+  --color-accent-hover: #2647bd;
+  --color-accent-soft: #eef2ff;
+  --color-accent-soft-strong: #dce3fb;
+
+  /* ---------------------------------------------------------------- Semantic */
+  --color-success: #178a5b;
+  --color-success-soft: #e6f4ee;
+  --color-warning: #b7791f;
+  --color-warning-soft: #fbf1de;
+  --color-danger: #c24141;
+  --color-danger-soft: #fbeaea;
+
+  /* ---------------------------------------------------------------- Ink (sidebar) */
+  --color-ink: #111214;
+  --color-ink-raised: #1a1b1e;
+  --color-ink-border: #2a2b2e;
+
+  /* ---------------------------------------------------------------- Type scale */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  /* ---------------------------------------------------------------- Elevation */
+  --shadow-xs: 0 1px 2px rgba(23, 24, 26, 0.05);
+  --shadow-sm: 0 1px 2px rgba(23, 24, 26, 0.04), 0 4px 10px -6px rgba(23, 24, 26, 0.08);
+  --shadow-md: 0 4px 16px -4px rgba(23, 24, 26, 0.12), 0 2px 6px -2px rgba(23, 24, 26, 0.06);
+  --shadow-lg: 0 16px 40px -12px rgba(23, 24, 26, 0.18);
+
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* Tailwind v4's preflight resets buttons to cursor: default (matching native
+   <button> behavior in some browsers) -- but every button/toggle/select
+   trigger in this app is meant to read as clickable, so restore the
+   pointer cursor everywhere except explicitly-disabled controls. */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+[role='tab'],
+[role='menuitem'],
+[role='option'],
+label[for],
+summary,
+select,
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'],
+input[type='file'] + label,
+.cursor-pointer-target {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+/* Safety net: every interactive element gets a visible keyboard-focus ring
+   even where a component doesn't define its own (e.g. plain <Link>s in
+   page content). Only fires for keyboard focus, never for mouse clicks, so
+   it never adds visual noise to pointer interactions. Components with a
+   more specific focus-visible style (Button, Input, Tr, ...) layer their
+   own ring on top of this rather than needing to opt out of it. */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv11', 'ss01', 'tnum' 0;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--color-accent-soft-strong);
+  color: var(--color-text);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(23, 24, 26, 0.13);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(23, 24, 26, 0.22);
+  background-clip: content-box;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+/* ---------------------------------------------------------------- Motion */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.15s var(--ease-out-quart) both;
+}
+.animate-rise-in {
+  animation: rise-in 0.22s var(--ease-out-quart) both;
+}
+.animate-scale-in {
+  animation: scale-in 0.16s var(--ease-out-quart) both;
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.24s var(--ease-out-quart) both;
+}
+
+.skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--color-surface-sunken) 40%,
+    #e9e9e6 50%,
+    var(--color-surface-sunken) 60%
+  );
+  background-size: 250% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-rise-in,
+  .animate-scale-in,
+  .animate-slide-in-right,
+  .skeleton {
+    animation: none !important;
+  }
+}
